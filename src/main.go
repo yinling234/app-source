@@ -1,54 +1,27 @@
+cat > src/main.go << 'EOF'
 package main
 
 import (
 	"fmt"
-	"log"
 	"net/http"
-	"os"
 )
-
-var (
-	Version    = "v1.0.0"
-	BuildTime  = "unknown"
-	CommitHash = "unknown"
-)
-
-func main() {
-	http.HandleFunc("/", homeHandler)
-	http.HandleFunc("/health", healthHandler)
-	http.HandleFunc("/ready", readyHandler)
-	http.HandleFunc("/version", versionHandler)
-
-	port := getEnv("PORT", "8080")
-	log.Printf("Starting server version %s (build: %s, commit: %s) on port %s",
-		Version, BuildTime, CommitHash, port)
-	log.Fatal(http.ListenAndServe(":"+port, nil))
-}
-
-func homeHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintf(w, "Hello from GitOps CI/CD Demo App!\n")
-	fmt.Fprintf(w, "Version: %s\n", Version)
-	fmt.Fprintf(w, "Environment: %s\n", getEnv("APP_ENV", "development"))
-}
 
 func healthHandler(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusOK)
-	fmt.Fprint(w, "OK")
+	fmt.Fprintf(w, "OK")
 }
 
-func readyHandler(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusOK)
-	fmt.Fprint(w, "READY")
+func indexHandler(w http.ResponseWriter, r *http.Request) {
+	fmt.Fprintf(w, "Hello from AI Gateway! Service running on port 8080")
 }
 
-func versionHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintf(w, "Version: %s\nBuild Time: %s\nCommit Hash: %s\n",
-		Version, BuildTime, CommitHash)
-}
+func main() {
+	http.HandleFunc("/", indexHandler)
+	http.HandleFunc("/health", healthHandler)
 
-func getEnv(key, defaultValue string) string {
-	if value := os.Getenv(key); value != "" {
-		return value
+	fmt.Println("Server starting on :8080...")
+	err := http.ListenAndServe(":8080", nil)
+	if err != nil {
+		fmt.Printf("Failed to start server: %v\n", err)
 	}
-	return defaultValue
 }
+EOF
