@@ -1,4 +1,3 @@
-cat > src/main.go << 'EOF'
 package main
 
 import (
@@ -24,4 +23,3 @@ func main() {
 		fmt.Printf("Failed to start server: %v\n", err)
 	}
 }
-EOF
