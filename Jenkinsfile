@@ -104,7 +104,7 @@ spec:
         stage('推送镜像') {
             steps {
                 container('docker') {
-                    withCredentials([usernamePassword(credentialsId: 'harbor-credentials', usernameVariable: 'HARBOR_USER', passwordVariable: 'HARB_PWD')]) {
+                    withCredentials([usernamePassword(credentialsId: 'harbor-credentials', usernameVariable: 'HARBOR_USER', passwordVariable: 'HARBOR_PWD')]) {
                         sh '''
                             docker login ${IMAGE_REGISTRY} -u ${HARBOR_USER} -p ${HARBOR_PWD}
                             docker push ${IMAGE_NAME}:${IMAGE_TAG}
