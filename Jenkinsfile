@@ -116,32 +116,25 @@ spec:
             }
         }
 
+        // ✅ 唯一修改：安装 git + https 提交，和你拉代码方式完全一致
         stage('更新 GitOps 配置 & 提交Git') {
             steps {
                 container('kubectl') {
-                    withCredentials([sshUserPrivateKey(
-                        credentialsId: 'git-ssh-key',
-                        keyFileVariable: 'GIT_SSH_KEY'
-                    )]) {
-                        sh '''
-                            mkdir -p ~/.ssh
-                            chmod 700 ~/.ssh
-                            cp $GIT_SSH_KEY ~/.ssh/id_rsa
-                            chmod 600 ~/.ssh/id_rsa
-                            echo "StrictHostKeyChecking no" > ~/.ssh/config
-
+                    sh 'apk update && apk add --no-cache git'
+                    withCredentials([usernamePassword(credentialsId: 'git-ssh-key', usernameVariable: 'GIT_USER', passwordVariable: 'GIT_PWD')]) {
+                        sh """
                             git config --global user.name "jenkins"
                             git config --global user.email "jenkins@demo.com"
 
-                            git clone git@github.com:yinling234/app-source.git gitops-repo
+                            git clone https://${GIT_USER}:${GIT_PWD}@github.com/yinling234/app-source.git gitops-repo
                             cd gitops-repo/gitops-config/overlays/${DEPLOY_ENV}
 
                             sed -i "s|image:.*|image: ${IMAGE_NAME}:${IMAGE_TAG}|g" deployment-patch.yaml
 
                             git add .
-                            git commit -m "ci update image to ${IMAGE_TAG}"
-                            git push git@github.com:yinling234/app-source.git
-                        '''
+                            git commit -m "ci: update image to ${IMAGE_TAG}"
+                            git push https://${GIT_USER}:${GIT_PWD}@github.com/yinling234/app-source.git
+                        """
                     }
                 }
             }
