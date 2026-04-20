@@ -104,7 +104,7 @@ spec:
         stage('推送镜像') {
             steps {
                 container('docker') {
-                    withCredentials([usernamePassword(credentialsId: 'harbor-credentials', usernameVariable: 'HARBOR_USER', passwordVariable: 'HARBOR_PWD')]) {
+                    withCredentials([usernamePassword(credentialsId: 'harbor-credentials', usernameVariable: 'HARBOR_USER', passwordVariable: 'HARB_PWD')]) {
                         sh '''
                             docker login ${IMAGE_REGISTRY} -u ${HARBOR_USER} -p ${HARBOR_PWD}
                             docker push ${IMAGE_NAME}:${IMAGE_TAG}
@@ -116,7 +116,6 @@ spec:
             }
         }
 
-        # ✅ 👇👇👇 只有这里被我修改了 👇👇👇
         stage('更新 GitOps 配置 & 提交Git') {
             steps {
                 container('kubectl') {
@@ -147,7 +146,6 @@ spec:
                 }
             }
         }
-        # ✅ 👆👆👆 只有这里被我修改了 👆👆👆
 
     }
 
