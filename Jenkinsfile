@@ -64,7 +64,6 @@ spec:
 
     environment {
         APP_NAME = 'myapp'
-        GITOPS_REPO = 'https://github.com/yinling234/app-source.git'
         IMAGE_NAME = "${params.IMAGE_REGISTRY}/library/${APP_NAME}"
         IMAGE_TAG = "${params.APP_VERSION}-${env.BUILD_NUMBER}"
         COMMIT_HASH = sh(script: 'git rev-parse --short HEAD', returnStdout: true).trim()
@@ -136,15 +135,15 @@ spec:
                             git config --global user.name "jenkins"
                             git config --global user.email "jenkins@demo.com"
 
-                            git clone git@github.com:yinling234/gitops-ci-cd-project.git gitops-repo
-                            cd gitops-repo/gitops-config/overlays/${DEPLOY_ENV}
+                            git clone git@github.com:yinling234/gitops-config.git gitops-repo
+                            cd gitops-repo/overlays/${DEPLOY_ENV}
 
                             sed -i "s|image:.*|image: ${IMAGE_NAME}:${IMAGE_TAG}|g" deployment-patch.yaml
 
                             cd ../..
                             git add .
                             git commit -m "ci: update image to ${IMAGE_TAG}"
-                            git push git@github.com:yinling234/gitops-ci-cd-project.git
+                            git push git@github.com:yinling234/gitops-config.git
                         """
                     }
                 }
