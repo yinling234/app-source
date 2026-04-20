@@ -5,16 +5,24 @@ import (
 	"net/http"
 )
 
-// 处理请求的函数
-func handler(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintf(w, "Hello from Docker + Go!")
+// 首页接口
+func indexHandler(w http.ResponseWriter, r *http.Request) {
+	fmt.Fprintf(w, "✅ Go 服务运行成功！\n")
+	fmt.Fprintf(w, "👋 Hello from Go + Docker\n")
+}
+
+// 健康检查
+func healthHandler(w http.ResponseWriter, r *http.Request) {
+	fmt.Fprintf(w, "ok")
 }
 
 func main() {
-	// 访问根路径 / 就会触发 handler
-	http.HandleFunc("/", handler)
+	http.HandleFunc("/", indexHandler)
+	http.HandleFunc("/health", healthHandler)
 
-	// 监听 8080 端口
-	fmt.Println("服务启动在 :8080")
-	http.ListenAndServe(":8080", nil)
+	fmt.Println("🚀 Go 服务启动，监听端口 8080")
+	err := http.ListenAndServe(":8080", nil)
+	if err != nil {
+		fmt.Println("启动失败：", err)
+	}
 }
