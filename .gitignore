@@ -1,0 +1,24 @@
+# Binaries
+bin/
+dist/
+
+# Coverage
+coverage.out
+coverage.html
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker
+.dockerignore
+
+# Local config
+.env
+*.local
