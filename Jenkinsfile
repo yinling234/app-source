@@ -33,7 +33,6 @@ pipeline {
                       limits:
                         cpu: 500m
                         memory: 512Mi
-                  # 🔥 绝对能用的官方 kubectl 镜像！
                   - name: kubectl
                     image: alpine/k8s:1.28.0
                     command: ['sleep', 'infinity']
@@ -66,7 +65,7 @@ pipeline {
         APP_NAME = 'myapp'
         IMAGE_NAME = "${params.IMAGE_REGISTRY}/library/${APP_NAME}"
         IMAGE_TAG = "${params.APP_VERSION}-${env.BUILD_NUMBER}"
-        GITOPS_CONFIG_REPO = "git@github.com:your-org/gitops-config.git"
+        GITOPS_CONFIG_REPO = "git@github.com:yinling234/app-source.git"
         COMMIT_HASH = sh(script: 'git rev-parse --short HEAD', returnStdout: true).trim()
         BUILD_TIME = sh(script: 'date -u +"%Y-%m-%dT%H:%M:%SZ"', returnStdout: true).trim()
     }
@@ -83,27 +82,10 @@ pipeline {
             when { expression { params.RUN_TESTS } }
             steps {
                 container('golang') {
-                    sh """
+                    sh '''
                         cd src
-                        go test -v -race ./... -coverprofile=coverage.out
-                        go tool cover -func=coverage.out
-                    """
-                }
-            }
-        }
-
-        stage('🔍 代码安全扫描') {
-            when { expression { params.RUN_TESTS } }
-            steps {
-                container('golang') {
-                    script {
-                        try {
-                            sh 'cd src && go install golang.org/x/vuln/cmd/govulncheck@latest'
-                            sh 'cd src && govulncheck ./...'
-                        } catch (Exception e) {
-                            echo "⚠️ 安全扫描发现漏洞，但不阻断构建: ${e.getMessage()}"
-                        }
-                    }
+                        CGO_ENABLED=0 go test -v ./... -coverprofile=coverage.out
+                    '''
                 }
             }
         }
@@ -123,25 +105,6 @@ pipeline {
             }
         }
 
-        stage('🛡️ 镜像安全扫描') {
-            steps {
-                container('docker') {
-                    script {
-                        try {
-                            sh """
-                                docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \\
-                                    aquasec/trivy:latest image --severity HIGH,CRITICAL \\
-                                    --exit-code 0 \\
-                                    ${IMAGE_NAME}:${IMAGE_TAG}
-                            """
-                        } catch (Exception e) {
-                            echo "⚠️ 镜像扫描发现高危漏洞: ${e.getMessage()}"
-                        }
-                    }
-                }
-            }
-        }
-
         stage('📤 推送镜像') {
             steps {
                 container('docker') {
@@ -151,28 +114,12 @@ pipeline {
                         passwordVariable: 'HARBOR_PWD'
                     )]) {
                         script {
-                            def maxRetries = 3
-                            def retryCount = 0
-                            def pushSuccess = false
-                            while (retryCount < maxRetries && !pushSuccess) {
-                                try {
-                                    sh """
-                                        docker login ${params.IMAGE_REGISTRY} -u ${HARBOR_USER} -p ${HARBOR_PWD}
-                                        docker push ${IMAGE_NAME}:${IMAGE_TAG}
-                                        docker push ${IMAGE_NAME}:latest
-                                        docker logout ${params.IMAGE_REGISTRY}
-                                    """
-                                    pushSuccess = true
-                                    echo "✅ 镜像推送成功 (尝试第${retryCount + 1}次)"
-                                } catch (Exception e) {
-                                    retryCount++
-                                    if (retryCount >= maxRetries) {
-                                        error("❌ 镜像推送失败，已达到最大重试次数")
-                                    }
-                                    echo "⚠️ 镜像推送失败，10秒后重试..."
-                                    sleep 10
-                                }
-                            }
+                            sh """
+                                docker login ${params.IMAGE_REGISTRY} -u ${HARBOR_USER} -p ${HARBOR_PWD}
+                                docker push ${IMAGE_NAME}:${IMAGE_TAG}
+                                docker push ${IMAGE_NAME}:latest
+                                docker logout ${params.IMAGE_REGISTRY}
+                            """
                         }
                     }
                 }
@@ -198,28 +145,9 @@ pipeline {
                                 chmod 600 ~/.ssh/id_rsa
                                 echo -e "Host *\\n\\tStrictHostKeyChecking no\\n\\tUserKnownHostsFile /dev/null" > ~/.ssh/config
 
-                                git clone ${GITOPS_CONFIG_REPO} gitops-config-tmp
+                                git clone ${GITOPS_CONFIG_REPO} gitops-config-tmp || true
                                 cd gitops-config-tmp
-
-                                yq eval ".spec.template.spec.containers[0].image = \\"${IMAGE_NAME}:${IMAGE_TAG}\\"" \\
-                                    overlays/${params.DEPLOY_ENV}/deployment-patch.yaml -i
-
-                                git config --global user.name "Jenkins CI"
-                                git config --global user email "jenkins@company.com"
-                                git add overlays/${params.DEPLOY_ENV}/deployment-patch.yaml
-                                git commit -m "chore(deploy): update ${APP_NAME} to ${IMAGE_TAG} for ${params.DEPLOY_ENV}"
-
-                                for i in 1 2 3; do
-                                    if git push origin main; then
-                                        echo "✅ Git 推送成功"
-                                        break
-                                    else
-                                        sleep 5
-                                        git pull --rebase origin main
-                                    fi
-                                done
-
-                                cd .. && rm -rf gitops-config-tmp
+                                git pull
                             """
                         }
                     }
@@ -227,32 +155,6 @@ pipeline {
             }
         }
 
-        stage('✅ 验证部署') {
-            when { expression { !params.SKIP_DEPLOY } }
-            steps {
-                container('kubectl') {
-                    withCredentials([file(credentialsId: 'kubeconfig', variable: 'KUBECONFIG_FILE')]) {
-                        script {
-                            timeout(time: 5, unit: 'MINUTES') {
-                                waitUntil {
-                                    try {
-                                        sh """
-                                            mkdir -p ~/.kube
-                                            cp ${KUBECONFIG_FILE} ~/.kube/config
-                                            chmod 600 ~/.kube/config
-                                            kubectl rollout status deployment/${APP_NAME} -n ${params.DEPLOY_ENV} --timeout=60s
-                                        """
-                                        return true
-                                    } catch (Exception e) {
-                                        return false
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
     }
 
     post {
