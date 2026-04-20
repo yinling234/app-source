@@ -5,21 +5,16 @@ import (
 	"net/http"
 )
 
-func healthHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintf(w, "OK")
-}
-
-func indexHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintf(w, "Hello from AI Gateway! Service running on port 8080")
+// 处理请求的函数
+func handler(w http.ResponseWriter, r *http.Request) {
+	fmt.Fprintf(w, "Hello from Docker + Go!")
 }
 
 func main() {
-	http.HandleFunc("/", indexHandler)
-	http.HandleFunc("/health", healthHandler)
+	// 访问根路径 / 就会触发 handler
+	http.HandleFunc("/", handler)
 
-	fmt.Println("Server starting on :8080...")
-	err := http.ListenAndServe(":8080", nil)
-	if err != nil {
-		fmt.Printf("Failed to start server: %v\n", err)
-	}
+	// 监听 8080 端口
+	fmt.Println("服务启动在 :8080")
+	http.ListenAndServe(":8080", nil)
 }
