@@ -18,9 +18,9 @@ func main() {
 	http.HandleFunc("/health", healthHandler)
 	http.HandleFunc("/ready", readyHandler)
 	http.HandleFunc("/version", versionHandler)
-	
+
 	port := getEnv("PORT", "8080")
-	log.Printf("Starting server version %s (build: %s, commit: %s) on port %s", 
+	log.Printf("Starting server version %s (build: %s, commit: %s) on port %s",
 		Version, BuildTime, CommitHash, port)
 	log.Fatal(http.ListenAndServe(":"+port, nil))
 }
@@ -37,13 +37,12 @@ func healthHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func readyHandler(w http.ResponseWriter, r *http.Request) {
-	// 这里可以添加数据库连接检查等逻辑
 	w.WriteHeader(http.StatusOK)
 	fmt.Fprint(w, "READY")
 }
 
 func versionHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintf(w, "Version: %s\nBuild Time: %s\nCommit Hash: %s\n", 
+	fmt.Fprintf(w, "Version: %s\nBuild Time: %s\nCommit Hash: %s\n",
 		Version, BuildTime, CommitHash)
 }
 
