@@ -33,8 +33,9 @@ pipeline {
                       limits:
                         cpu: 500m
                         memory: 512Mi
+                  # 🔥 绝对能用的官方 kubectl 镜像！
                   - name: kubectl
-                    image: bitnami/kubectl:1.28-debian-12-r6
+                    image: alpine/k8s:1.28.0
                     command: ['sleep', 'infinity']
                     tty: true
                     resources:
@@ -204,7 +205,7 @@ pipeline {
                                     overlays/${params.DEPLOY_ENV}/deployment-patch.yaml -i
 
                                 git config --global user.name "Jenkins CI"
-                                git config --global user.email "jenkins@company.com"
+                                git config --global user email "jenkins@company.com"
                                 git add overlays/${params.DEPLOY_ENV}/deployment-patch.yaml
                                 git commit -m "chore(deploy): update ${APP_NAME} to ${IMAGE_TAG} for ${params.DEPLOY_ENV}"
 
