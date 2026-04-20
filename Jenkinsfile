@@ -58,7 +58,7 @@ spec:
     parameters {
         string(name: 'APP_VERSION', defaultValue: 'v1.0.0', description: '版本号')
         string(name: 'IMAGE_REGISTRY', defaultValue: '192.168.30.11:30002', description: '镜像仓库')
-        choice(name: 'DEPLOY_ENV', choices: ['dev', 'staging', 'prod'], defaultValue: 'dev')
+        choice(name: 'DEPLOY_ENV', choices: 'dev\nstaging\nprod', description: '部署环境')
         booleanParam(name: 'RUN_TESTS', defaultValue: true)
         booleanParam(name: 'SKIP_DEPLOY', defaultValue: false)
     }
