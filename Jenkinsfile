@@ -5,6 +5,13 @@ pipeline {
                 apiVersion: v1
                 kind: Pod
                 spec:
+                  # 允许调度到 master 节点（解决污点问题）
+                  tolerations:
+                  - key: node-role.kubernetes.io/control-plane
+                    operator: Exists
+                    effect: NoSchedule
+
+                  # 大幅降低所有容器的内存 → 解决内存不足
                   containers:
                   - name: golang
                     image: golang:1.21-alpine
@@ -12,11 +19,11 @@ pipeline {
                     tty: true
                     resources:
                       requests:
-                        cpu: 500m
-                        memory: 1Gi
+                        cpu: 100m
+                        memory: 256Mi
                       limits:
-                        cpu: 1
-                        memory: 2Gi
+                        cpu: 500m
+                        memory: 512Mi
                   - name: docker
                     image: docker:24.0.7-dind
                     command: ['cat']
@@ -24,22 +31,22 @@ pipeline {
                     privileged: true
                     resources:
                       requests:
-                        cpu: 500m
-                        memory: 1Gi
+                        cpu: 100m
+                        memory: 256Mi
                       limits:
-                        cpu: 1
-                        memory: 2Gi
+                        cpu: 500m
+                        memory: 512Mi
                   - name: kubectl
                     image: bitnami/kubectl:1.28
                     command: ['cat']
                     tty: true
                     resources:
                       requests:
-                        cpu: 200m
-                        memory: 512Mi
+                        cpu: 50m
+                        memory: 128Mi
                       limits:
-                        cpu: 500m
-                        memory: 1Gi
+                        cpu: 200m
+                        memory: 256Mi
             """
         }
     }
@@ -148,7 +155,6 @@ pipeline {
                         passwordVariable: 'HARBOR_PWD'
                     )]) {
                         script {
-                            // 优化：添加推送重试逻辑
                             def maxRetries = 3
                             def retryCount = 0
                             def pushSuccess = false
@@ -182,39 +188,32 @@ pipeline {
             when { expression { !params.SKIP_DEPLOY } }
             steps {
                 container('kubectl') {
-                    // 🔴 这里加入了 kubeconfig 凭据挂载
                     withCredentials([file(credentialsId: 'kubeconfig', variable: 'KUBECONFIG_FILE')]) {
                         withCredentials([sshUserPrivateKey(
                             credentialsId: 'git-ssh-key',
                             keyFileVariable: 'GIT_KEY'
                         )]) {
                             sh """
-                                # 加载 kubeconfig 配置
                                 mkdir -p ~/.kube
                                 cp ${KUBECONFIG_FILE} ~/.kube/config
                                 chmod 600 ~/.kube/config
 
-                                # 设置 SSH 密钥
                                 mkdir -p ~/.ssh
                                 cp ${GIT_KEY} ~/.ssh/id_rsa
                                 chmod 600 ~/.ssh/id_rsa
                                 echo -e "Host *\\n\\tStrictHostKeyChecking no\\n\\tUserKnownHostsFile /dev/null" > ~/.ssh/config
 
-                                # 克隆 GitOps 配置仓库
                                 git clone ${GITOPS_CONFIG_REPO} gitops-config-tmp
                                 cd gitops-config-tmp
 
-                                # 更新对应环境的镜像标签
                                 yq eval ".spec.template.spec.containers[0].image = \\"${IMAGE_NAME}:${IMAGE_TAG}\\"" \\
                                     overlays/${params.DEPLOY_ENV}/deployment-patch.yaml -i
 
-                                # 提交并推送配置
                                 git config --global user.name "Jenkins CI"
                                 git config --global user.email "jenkins@company.com"
                                 git add overlays/${params.DEPLOY_ENV}/deployment-patch.yaml
                                 git commit -m "chore(deploy): update ${APP_NAME} to ${IMAGE_TAG} for ${params.DEPLOY_ENV}"
 
-                                # 重试推送
                                 for i in {1..3}; do
                                     if git push origin main; then
                                         echo "✅ Git 推送成功 (尝试第$i次)"
@@ -227,7 +226,6 @@ pipeline {
                                     if [ $i -eq 3 ]; then exit 1; fi
                                 done
 
-                                # 清理临时目录
                                 cd .. && rm -rf gitops-config-tmp
                             """
                         }
@@ -240,14 +238,12 @@ pipeline {
             when { expression { !params.SKIP_DEPLOY } }
             steps {
                 container('kubectl') {
-                    // 🔴 这里加入了 kubeconfig 凭据挂载
                     withCredentials([file(credentialsId: 'kubeconfig', variable: 'KUBECONFIG_FILE')]) {
                         script {
                             timeout(time: 5, unit: 'MINUTES') {
                                 waitUntil {
                                     try {
                                         sh """
-                                            # 加载 kubeconfig
                                             mkdir -p ~/.kube
                                             cp ${KUBECONFIG_FILE} ~/.kube/config
                                             chmod 600 ~/.kube/config
@@ -264,7 +260,6 @@ pipeline {
                                 }
                             }
 
-                            // 健康检查
                             sh """
                                 mkdir -p ~/.kube
                                 cp ${KUBECONFIG_FILE} ~/.kube/config
