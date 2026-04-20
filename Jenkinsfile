@@ -24,7 +24,7 @@ spec:
   - name: docker
     image: docker:24.0.7-dind
     command: ['dockerd-entrypoint.sh']
-    args: ['--storage-driver=overlay2']
+    args: ['--storage-driver=overlay2', '--insecure-registry=192.168.30.11:30002']
     tty: true
     securityContext:
       privileged: true
@@ -58,7 +58,7 @@ spec:
     parameters {
         string(name: 'APP_VERSION', defaultValue: 'v1.0.0', description: '版本号')
         string(name: 'IMAGE_REGISTRY', defaultValue: '192.168.30.11:30002', description: '镜像仓库')
-        choice(name: 'DEPLOY_ENV', choices: 'dev\nstaging\nprod', description: '部署环境')
+        choice(name: 'DEPLOY_ENV', choices: 'dev\nstaging\nprod')
         booleanParam(name: 'RUN_TESTS', defaultValue: true)
         booleanParam(name: 'SKIP_DEPLOY', defaultValue: false)
     }
@@ -114,12 +114,12 @@ spec:
                         usernameVariable: 'HARBOR_USER',
                         passwordVariable: 'HARBOR_PWD'
                     )]) {
-                        sh """
-                            docker login ${params.IMAGE_REGISTRY} -u ${HARBOR_USER} -p ${HARBOR_PWD}
+                        sh '''
+                            docker login ${IMAGE_REGISTRY} -u ${HARBOR_USER} -p ${HARBOR_PWD}
                             docker push ${IMAGE_NAME}:${IMAGE_TAG}
                             docker push ${IMAGE_NAME}:latest
                             docker logout
-                        """
+                        '''
                     }
                 }
             }
@@ -127,7 +127,7 @@ spec:
     }
 
     post {
-        success { echo "🎉 🎉 🚨 流水线全部成功！" }
+        success { echo "🎉 🎉 🎉 全部成功！CI/CD 流程完全通了！" }
         failure { echo "❌ 失败" }
     }
 }
