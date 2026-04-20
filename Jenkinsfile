@@ -33,10 +33,9 @@ pipeline {
                       limits:
                         cpu: 500m
                         memory: 512Mi
-                  # 👇 修复：换成官方可用镜像
                   - name: kubectl
-                    image: rancher/kubectl:v1.28.0
-                    command: ['cat']
+                    image: bitnami/kubectl:1.28-debian-12-r6
+                    command: ['sleep', 'infinity']
                     tty: true
                     resources:
                       requests:
@@ -209,7 +208,7 @@ pipeline {
                                 git add overlays/${params.DEPLOY_ENV}/deployment-patch.yaml
                                 git commit -m "chore(deploy): update ${APP_NAME} to ${IMAGE_TAG} for ${params.DEPLOY_ENV}"
 
-                                for i in {1..3}; do
+                                for i in 1 2 3; do
                                     if git push origin main; then
                                         echo "✅ Git 推送成功"
                                         break
@@ -258,6 +257,5 @@ pipeline {
     post {
         success { echo "🎉 流水线执行成功！" }
         failure { echo "❌ 流水线执行失败！" }
-        always { cleanWs() }
     }
 }
