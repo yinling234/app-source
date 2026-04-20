@@ -55,6 +55,11 @@ spec:
         timeout(time: 30, unit: 'MINUTES')
     }
 
+    // 👇 👇 👇 【只有这里我加了 4 行，其他完全没动】
+    triggers {
+        githubPush()
+    }
+
     parameters {
         string(name: 'APP_VERSION', defaultValue: 'v1.0.0', description: '版本号')
         string(name: 'IMAGE_REGISTRY', defaultValue: '192.168.30.11:30003', description: '镜像仓库')
@@ -119,7 +124,7 @@ spec:
             steps {
                 container('kubectl') {
                     sh 'apk update && apk add --no-cache git openssh-keygen openssh-client'
-                    
+
                     withCredentials([sshUserPrivateKey(
                         credentialsId: 'git-ssh-key',
                         keyFileVariable: 'GIT_SSH_KEY',
