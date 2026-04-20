@@ -119,10 +119,8 @@ spec:
         stage('更新 GitOps 配置 & 提交Git') {
             steps {
                 container('kubectl') {
-                    // 安装 git 和 ssh
                     sh 'apk update && apk add --no-cache git openssh-keygen openssh-client'
                     
-                    // 使用你现有的 SSH 凭据（正确类型）
                     withCredentials([sshUserPrivateKey(
                         credentialsId: 'git-ssh-key',
                         keyFileVariable: 'GIT_SSH_KEY',
@@ -138,14 +136,15 @@ spec:
                             git config --global user.name "jenkins"
                             git config --global user.email "jenkins@demo.com"
 
-                            git clone git@github.com:yinling234/app-source.git gitops-repo
+                            git clone git@github.com:yinling234/gitops-ci-cd-project.git gitops-repo
                             cd gitops-repo/gitops-config/overlays/${DEPLOY_ENV}
 
                             sed -i "s|image:.*|image: ${IMAGE_NAME}:${IMAGE_TAG}|g" deployment-patch.yaml
 
+                            cd ../..
                             git add .
                             git commit -m "ci: update image to ${IMAGE_TAG}"
-                            git push git@github.com:yinling234/app-source.git
+                            git push git@github.com:yinling234/gitops-ci-cd-project.git
                         """
                     }
                 }
@@ -155,7 +154,7 @@ spec:
     }
 
     post {
-        success { echo "🎉 🎉 🎉 CI + GitOps 自动化部署流程全部成功！" }
+        success { echo "🎉 🎉 🎉 构建 + 推送 + GitOps 更新 全部成功！" }
         failure { echo "❌ 失败" }
     }
 }
