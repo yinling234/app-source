@@ -24,7 +24,7 @@ spec:
   - name: docker
     image: docker:24.0.7-dind
     command: ['dockerd-entrypoint.sh']
-    args: ['--storage-driver=overlay2', '--insecure-registry=192.168.30.11:30002']
+    args: ['--storage-driver=overlay2', '--insecure-registry=192.168.30.11:30003']
     tty: true
     securityContext:
       privileged: true
