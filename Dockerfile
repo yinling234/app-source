@@ -1,18 +1,18 @@
-FROM golang:1.21-alpine AS builder
-
+# 构建阶段
+FROM golang:alpine AS builder
 WORKDIR /app
 
-# 不用复制 go.mod，直接编译
-COPY src/ .
+# 复制项目文件（正确路径）
+COPY go.mod .
+COPY src/main.go .
 
-RUN CGO_ENABLED=0 go build -o myapp .
+# 编译
+RUN CGO_ENABLED=0 GOOS=linux go build -o ai-gateway .
 
-FROM alpine:3.18
-
+# 运行阶段
+FROM alpine:latest
 WORKDIR /app
-
-COPY --from=builder /app/myapp .
+COPY --from=builder /app/ai-gateway .
 
 EXPOSE 8080
-
-CMD ["/app/myapp"]
+CMD ["./ai-gateway"]
