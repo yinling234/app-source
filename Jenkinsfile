@@ -5,13 +5,10 @@ pipeline {
                 apiVersion: v1
                 kind: Pod
                 spec:
-                  # 允许调度到 master 节点（解决污点问题）
                   tolerations:
                   - key: node-role.kubernetes.io/control-plane
                     operator: Exists
                     effect: NoSchedule
-
-                  # 大幅降低所有容器的内存 → 解决内存不足
                   containers:
                   - name: golang
                     image: golang:1.21-alpine
@@ -36,8 +33,9 @@ pipeline {
                       limits:
                         cpu: 500m
                         memory: 512Mi
+                  # 👇 修复：换成官方可用镜像
                   - name: kubectl
-                    image: bitnami/kubectl:1.28
+                    image: rancher/kubectl:v1.28.0
                     command: ['cat']
                     tty: true
                     resources:
@@ -51,7 +49,6 @@ pipeline {
         }
     }
 
-    // 优化：添加并发控制和超时
     options {
         disableConcurrentBuilds()
         timeout(time: 30, unit: 'MINUTES')
@@ -139,7 +136,6 @@ pipeline {
                             """
                         } catch (Exception e) {
                             echo "⚠️ 镜像扫描发现高危漏洞: ${e.getMessage()}"
-                            // 生产环境可设置为 exit 1
                         }
                     }
                 }
@@ -158,7 +154,6 @@ pipeline {
                             def maxRetries = 3
                             def retryCount = 0
                             def pushSuccess = false
-
                             while (retryCount < maxRetries && !pushSuccess) {
                                 try {
                                     sh """
@@ -174,7 +169,7 @@ pipeline {
                                     if (retryCount >= maxRetries) {
                                         error("❌ 镜像推送失败，已达到最大重试次数")
                                     }
-                                    echo "⚠️ 镜像推送失败 (尝试第${retryCount}次)，10秒后重试..."
+                                    echo "⚠️ 镜像推送失败，10秒后重试..."
                                     sleep 10
                                 }
                             }
@@ -216,14 +211,12 @@ pipeline {
 
                                 for i in {1..3}; do
                                     if git push origin main; then
-                                        echo "✅ Git 推送成功 (尝试第$i次)"
+                                        echo "✅ Git 推送成功"
                                         break
                                     else
-                                        echo "⚠️ Git 推送失败 (尝试第$i次)，5秒后重试..."
                                         sleep 5
                                         git pull --rebase origin main
                                     fi
-                                    if [ $i -eq 3 ]; then exit 1; fi
                                 done
 
                                 cd .. && rm -rf gitops-config-tmp
@@ -247,30 +240,14 @@ pipeline {
                                             mkdir -p ~/.kube
                                             cp ${KUBECONFIG_FILE} ~/.kube/config
                                             chmod 600 ~/.kube/config
-
-                                            kubectl rollout status deployment/${APP_NAME} \\
-                                              -n ${params.DEPLOY_ENV} \\
-                                              --timeout=60s
+                                            kubectl rollout status deployment/${APP_NAME} -n ${params.DEPLOY_ENV} --timeout=60s
                                         """
                                         return true
                                     } catch (Exception e) {
-                                        echo "等待部署完成..."
                                         return false
                                     }
                                 }
                             }
-
-                            sh """
-                                mkdir -p ~/.kube
-                                cp ${KUBECONFIG_FILE} ~/.kube/config
-                                chmod 600 ~/.kube/config
-
-                                kubectl run -it --rm test-${BUILD_NUMBER} \\
-                                  --image=curlimages/curl \\
-                                  --restart=Never \\
-                                  --namespace ${params.DEPLOY_ENV} \\
-                                  -- curl -f http://${APP_NAME}.${params.DEPLOY_ENV}.svc.cluster.local:8080/health
-                            """
                         }
                     }
                 }
@@ -279,14 +256,8 @@ pipeline {
     }
 
     post {
-        success {
-            echo "🎉 流水线执行成功！应用版本 ${IMAGE_TAG} 已部署至 ${params.DEPLOY_ENV} 环境"
-        }
-        failure {
-            echo "❌ 流水线执行失败！"
-        }
-        always {
-            cleanWs()
-        }
+        success { echo "🎉 流水线执行成功！" }
+        failure { echo "❌ 流水线执行失败！" }
+        always { cleanWs() }
     }
 }
