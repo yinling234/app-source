@@ -57,18 +57,18 @@ spec:
 
     parameters {
         string(name: 'APP_VERSION', defaultValue: 'v1.0.0', description: '版本号')
-        string(name: 'IMAGE_REGISTRY', defaultValue: '192.168.30.11:30002', description: '镜像仓库')
-        choice(name: 'DEPLOY_ENV', choices: 'dev\nstaging\nprod')
+        string(name: 'IMAGE_REGISTRY', defaultValue: '192.168.30.11:30003', description: '镜像仓库')
+        choice(name: 'DEPLOY_ENV', choices: 'dev\nstaging\nprod', description: '部署环境')
         booleanParam(name: 'RUN_TESTS', defaultValue: true)
-        booleanParam(name: 'SKIP_DEPLOY', defaultValue: false)
     }
 
     environment {
         APP_NAME = 'myapp'
+        GITOPS_REPO = 'https://github.com/yinling234/app-source.git'
         IMAGE_NAME = "${params.IMAGE_REGISTRY}/library/${APP_NAME}"
         IMAGE_TAG = "${params.APP_VERSION}-${env.BUILD_NUMBER}"
         COMMIT_HASH = sh(script: 'git rev-parse --short HEAD', returnStdout: true).trim()
-        BUILD_TIME = sh(script: 'date -u +"%Y-%m-%dT%H:%M:%SZ"', returnStdout: true).trim()
+        DEPLOY_ENV = "${params.DEPLOY_ENV}"
     }
 
     stages {
@@ -85,7 +85,7 @@ spec:
                 container('golang') {
                     sh '''
                         cd src
-                        CGO_ENABLED=0 go test -v ./... -coverprofile=coverage.out
+                        CGO_ENABLED=0 go test -v ./...
                     '''
                 }
             }
@@ -95,12 +95,7 @@ spec:
             steps {
                 container('docker') {
                     sh """
-                        docker build \\
-                          --build-arg VERSION=${params.APP_VERSION} \\
-                          --build-arg BUILD_TIME=${env.BUILD_TIME} \\
-                          --build-arg COMMIT_HASH=${env.COMMIT_HASH} \\
-                          -t ${IMAGE_NAME}:${IMAGE_TAG} \\
-                          -t ${IMAGE_NAME}:latest .
+                        docker build -t ${IMAGE_NAME}:${IMAGE_TAG} -t ${IMAGE_NAME}:latest .
                     """
                 }
             }
@@ -109,11 +104,7 @@ spec:
         stage('推送镜像') {
             steps {
                 container('docker') {
-                    withCredentials([usernamePassword(
-                        credentialsId: 'harbor-credentials',
-                        usernameVariable: 'HARBOR_USER',
-                        passwordVariable: 'HARBOR_PWD'
-                    )]) {
+                    withCredentials([usernamePassword(credentialsId: 'harbor-credentials', usernameVariable: 'HARBOR_USER', passwordVariable: 'HARBOR_PWD')]) {
                         sh '''
                             docker login ${IMAGE_REGISTRY} -u ${HARBOR_USER} -p ${HARBOR_PWD}
                             docker push ${IMAGE_NAME}:${IMAGE_TAG}
@@ -124,10 +115,34 @@ spec:
                 }
             }
         }
+
+        stage('更新 GitOps 配置 & 提交Git') {
+            steps {
+                container('kubectl') {
+                    withCredentials([usernamePassword(credentialsId: 'git-ssh-key', usernameVariable: 'GIT_USER', passwordVariable: 'GIT_PWD')]) {
+                        sh """
+                            # 克隆 gitops 配置
+                            git config --global user.name "jenkins"
+                            git config --global user.email "jenkins@demo.com"
+                            git clone ${GITOPS_REPO} gitops-repo
+                            cd gitops-repo/gitops-config/overlays/${DEPLOY_ENV}/
+
+                            # 替换镜像版本
+                            sed -i "s|image:.*|image: ${IMAGE_NAME}:${IMAGE_TAG}|g" deployment-patch.yaml
+
+                            # 提交
+                            git add .
+                            git commit -m "🚀 Jenkins 自动更新 ${DEPLOY_ENV} 镜像版本: ${IMAGE_TAG}"
+                            git push https://${GIT_USER}:${GIT_PWD}@github.com/yinling234/app-source.git
+                        """
+                    }
+                }
+            }
+        }
     }
 
     post {
-        success { echo "🎉 🎉 🎉 全部成功！CI/CD 流程完全通了！" }
+        success { echo "🎉 🎉 🎉 CI + GitOps 自动化部署流程全部成功！" }
         failure { echo "❌ 失败" }
     }
 }
