@@ -1,0 +1,25 @@
+# 构建阶段
+FROM golang:1.22-alpine AS builder
+WORKDIR /app
+
+# 复制代码
+COPY src/main.go .
+
+# 编译
+RUN CGO_ENABLED=0 GOOS=linux go build -o server main.go
+
+# 运行阶段
+FROM alpine:latest
+WORKDIR /root/
+
+# 从构建阶段复制二进制
+COPY --from=builder /app/server .
+
+# ✅ 关键：加上可执行权限！
+RUN chmod +x ./server
+
+# 端口
+EXPOSE 8080
+
+# 启动
+CMD ["./server"]
