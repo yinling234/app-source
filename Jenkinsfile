@@ -11,7 +11,7 @@ spec:
     effect: NoSchedule
   containers:
   - name: golang
-    image: golang:1.21-alpine
+    image: golang:1.25-alpine
     command: ['cat']
     tty: true
     resources:
